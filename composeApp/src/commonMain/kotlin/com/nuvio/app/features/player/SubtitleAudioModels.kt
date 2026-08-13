@@ -31,6 +31,8 @@ data class AddonSubtitle(
     val language: String,
     val display: String,
     val addonName: String? = null,
+    val detail: String = "",
+    val uploader: String = "",
     val isSelected: Boolean = false,
 )
 

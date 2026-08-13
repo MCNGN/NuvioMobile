@@ -458,6 +458,7 @@ private fun ExoPlayerSurface(
     val pendingSubtitleTrackIndex = remember { mutableListOf<Int>() }
     val pendingAudioTrackSelection = remember { mutableListOf<TrackSelectionSnapshot>() }
     var currentSubtitleStyle by remember { mutableStateOf(SubtitleStyleState.DEFAULT) }
+    var subtitleLiftPercent by remember { mutableStateOf(0) }
     var subtitleSelectionJob by remember { mutableStateOf<Job?>(null) }
     val isInPip = rememberIsInPictureInPicture()
     val pipSubtitleScale by rememberUpdatedState(if (isInPip) 0.4f else 1.0f)
@@ -842,7 +843,12 @@ private fun ExoPlayerSurface(
 
                 override fun applySubtitleStyle(style: SubtitleStyleState) {
                     currentSubtitleStyle = style
-                    playerViewRef?.applySubtitleStyle(style, pipSubtitleScale)
+                    playerViewRef?.applySubtitleStyle(style, pipSubtitleScale, subtitleLiftPercent)
+                }
+
+                override fun setSubtitleLiftPercent(liftPercent: Int) {
+                    subtitleLiftPercent = liftPercent.coerceIn(0, 60)
+                    playerViewRef?.applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale, subtitleLiftPercent)
                 }
 
                 override fun setSubtitleDelayMs(delayMs: Int) {
@@ -875,7 +881,7 @@ private fun ExoPlayerSurface(
                     enabled = useLibass,
                     renderType = libassRenderType,
                 )
-                applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale)
+                applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale, subtitleLiftPercent)
             }
         },
         update = { playerView ->
@@ -889,7 +895,7 @@ private fun ExoPlayerSurface(
                 enabled = useLibass,
                 renderType = libassRenderType,
             )
-            playerView.applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale)
+            playerView.applySubtitleStyle(currentSubtitleStyle, pipSubtitleScale, subtitleLiftPercent)
         },
     )
 }
@@ -1344,6 +1350,9 @@ private class NuvioLibmpvView(
         nowPlayingController: AndroidPlayerNowPlayingController?,
     ): PlayerEngineController =
         object : PlayerEngineController {
+            private var subtitleLiftPercent = 0
+            private var lastSubtitleStyle: SubtitleStyleState? = null
+
             override fun play() = setPaused(false)
 
             override fun pause() = setPaused(true)
@@ -1428,6 +1437,7 @@ private class NuvioLibmpvView(
             }
 
             override fun applySubtitleStyle(style: SubtitleStyleState) {
+                lastSubtitleStyle = style
                 mpv.setPropertyString("sub-ass-override", "no")
                 mpv.setPropertyString("sub-color", style.textColor.toMpvColor())
                 mpv.setPropertyString("sub-back-color", style.backgroundColor.toMpvColor())
@@ -1438,7 +1448,18 @@ private class NuvioLibmpvView(
                 mpv.setPropertyInt("sub-font-size", style.toMpvSubtitleFontSize())
                 mpv.setPropertyInt("sub-outline-size", style.toMpvSubtitleOutlineSize())
                 mpv.setPropertyInt("sub-border-size", style.toMpvSubtitleOutlineSize())
-                mpv.setPropertyInt("sub-pos", (100 - style.bottomOffset / 10).coerceIn(0, 100))
+                // Subtitle auto-lift: kurangi sub-pos (semakin kecil = makin tinggi)
+                // sebesar tinggi control bar saat bar muncul; kalau user sudah set
+                // offset bawah sendiri, cuma lift defisitnya aja.
+                val baseSubPos = (100 - style.bottomOffset / 10).coerceIn(0, 100)
+                val distanceFromBottomPct = (100 - baseSubPos).coerceIn(0, 100)
+                val neededLiftPct = (subtitleLiftPercent - distanceFromBottomPct).coerceAtLeast(0)
+                mpv.setPropertyInt("sub-pos", (baseSubPos - neededLiftPct).coerceIn(0, 100))
+            }
+
+            override fun setSubtitleLiftPercent(liftPercent: Int) {
+                subtitleLiftPercent = liftPercent.coerceIn(0, 60)
+                lastSubtitleStyle?.let { applySubtitleStyle(it) }
             }
 
             override fun setSubtitleDelayMs(delayMs: Int) {
@@ -1738,11 +1759,17 @@ private fun android.widget.FrameLayout.removeAssOverlayChildren() {
     }
 }
 
-private fun PlayerView.applySubtitleStyle(style: SubtitleStyleState, pipScale: Float = 1.0f) {
+private fun PlayerView.applySubtitleStyle(
+    style: SubtitleStyleState,
+    pipScale: Float = 1.0f,
+    subtitleLiftPercent: Int = 0,
+) {
     subtitleView?.apply {
         val baseBottomPaddingFraction = SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION * 2f / 3f
         val offsetFraction = (style.bottomOffset / 1000f).coerceIn(0f, 0.2f)
-        val bottomPaddingFraction = (baseBottomPaddingFraction + offsetFraction).coerceIn(0f, 0.4f)
+        val liftFraction = (subtitleLiftPercent / 100f) * 0.4f
+        val bottomPaddingFraction = (baseBottomPaddingFraction + offsetFraction + liftFraction)
+            .coerceIn(0f, 0.4f)
 
         setApplyEmbeddedStyles(false)
         setApplyEmbeddedFontSizes(false)
