@@ -16,7 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.roundToPx
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.nuvio.app.features.p2p.P2pStreamingState
 import com.nuvio.app.features.p2p.formatP2pMegabytes
 import com.nuvio.app.features.p2p.formatP2pSpeed
@@ -245,8 +246,9 @@ private fun PlayerScreenRuntime.currentInitialPositionRequestKey(): String? {
 @Composable
 private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, isEpisode: Boolean) {
     val isInPip = rememberIsInPictureInPicture()
-    var controlsBottomBarHeightPx by remember { mutableStateOf(0) }
-    var controlsViewportHeightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    var controlsBottomBarHeightDp by remember { mutableStateOf(0.dp) }
+    var controlsViewportHeightDp by remember { mutableStateOf(0.dp) }
 
     LaunchedEffect(
         playerController,
@@ -254,15 +256,15 @@ private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, 
         showParentalGuide,
         playerControlsLocked,
         isInPip,
-        controlsBottomBarHeightPx,
-        controlsViewportHeightPx,
+        controlsBottomBarHeightDp,
+        controlsViewportHeightDp,
     ) {
         // Subtitle auto-lift: pas control bar (bagian bawah) muncul, naikkan subtitle
         // biar gak ketutup bar — behavior kayak Netflix/YouTube. Ukur tinggi bar asli
         // relatif ke viewport (×0.8, clamp 60) — sama seperti versi Desktop.
         val barShown = (controlsVisible || showParentalGuide) && !playerControlsLocked && !isInPip
-        val liftPercent = if (barShown && controlsBottomBarHeightPx > 0 && controlsViewportHeightPx > 0) {
-            val raw = (controlsBottomBarHeightPx.toFloat() / controlsViewportHeightPx.toFloat()) * 100f
+        val liftPercent = if (barShown && controlsBottomBarHeightDp > 0.dp && controlsViewportHeightDp > 0.dp) {
+            val raw = (controlsBottomBarHeightDp.value / controlsViewportHeightDp.value) * 100f
             (kotlin.math.ceil(raw * 0.8f)).toInt().coerceIn(0, 60)
         } else {
             0
@@ -371,11 +373,13 @@ private fun PlayerScreenRuntime.RenderPlayerControls(displayedPositionMs: Long, 
             },
             horizontalSafePadding = horizontalSafePadding,
             onBottomBarHeightChange = { barHeightDp ->
-                controlsBottomBarHeightPx = with(LocalDensity.current) { barHeightDp.roundToPx() }
+                controlsBottomBarHeightDp = barHeightDp
             },
             modifier = Modifier
                 .fillMaxSize()
-                .onSizeChanged { size -> controlsViewportHeightPx = size.height },
+                .onSizeChanged { size ->
+                    controlsViewportHeightDp = with(density) { size.height.toDp() }
+                },
         )
     }
 }

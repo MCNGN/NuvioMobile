@@ -98,9 +98,10 @@ internal fun PlayerControlsShell(
     onScrubChange: (Long) -> Unit,
     onScrubFinished: (Long) -> Unit,
     horizontalSafePadding: androidx.compose.ui.unit.Dp,
-    onBottomBarHeightChange: (Dp) -> Unit = {},
+    onBottomBarHeightChange: (androidx.compose.ui.unit.Dp) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val density = LocalDensity.current
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -199,7 +200,7 @@ internal fun PlayerControlsShell(
                         .padding(horizontal = metrics.horizontalPadding)
                         .padding(bottom = metrics.sliderBottomOffset)
                         .onSizeChanged { size ->
-                            onBottomBarHeightChange(with(LocalDensity.current) { size.height.toDp() })
+                            onBottomBarHeightChange(with(density) { size.height.toDp() })
                         },
                 )
             }
