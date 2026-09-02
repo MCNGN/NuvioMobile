@@ -84,7 +84,6 @@ actual fun PlatformPlayerSurface(
         object : PlayerEngineController {
             private var subtitleLiftPercent = 0
             private var lastSubtitleStyle: SubtitleStyleState? = null
-
             override fun play() {
                 bridge.play()
             }
@@ -265,9 +264,6 @@ actual fun PlatformPlayerSurface(
 
             override fun applySubtitleStyle(style: SubtitleStyleState) {
                 lastSubtitleStyle = style
-                // Subtitle auto-lift: kurangi subPos (semakin kecil = makin tinggi)
-                // sebesar tinggi control bar saat bar muncul; kalau user sudah set
-                // offset bawah sendiri, cuma lift defisitnya aja.
                 val baseSubPos = style.toMpvSubtitlePosition()
                 val distanceFromBottomPct = (100 - baseSubPos).coerceIn(0, 100)
                 val neededLiftPct = (subtitleLiftPercent - distanceFromBottomPct).coerceAtLeast(0)
@@ -279,6 +275,7 @@ actual fun PlatformPlayerSurface(
                     bold = style.bold,
                     fontSize = style.toMpvSubtitleFontSize(),
                     subPos = (baseSubPos - neededLiftPct).coerceIn(0, 150),
+                    stripSdh = style.stripSdh,
                 )
             }
 
