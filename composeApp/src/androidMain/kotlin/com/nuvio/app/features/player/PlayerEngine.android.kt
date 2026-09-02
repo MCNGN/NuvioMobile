@@ -491,7 +491,6 @@ private fun ExoPlayerSurface(
 
     val pendingSubtitleTrackIndex = remember { mutableListOf<Int>() }
     val pendingAudioTrackSelection = remember { mutableListOf<TrackSelectionSnapshot>() }
-    var currentSubtitleStyle by remember { mutableStateOf(SubtitleStyleState.DEFAULT) }
     var subtitleLiftPercent by remember { mutableStateOf(0) }
     var subtitleSelectionJob by remember { mutableStateOf<Job?>(null) }
     val isInPip = rememberIsInPictureInPicture()
