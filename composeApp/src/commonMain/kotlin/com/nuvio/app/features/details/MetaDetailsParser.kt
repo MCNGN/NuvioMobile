@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -27,6 +28,7 @@ internal object MetaDetailsParser {
         val meta = root.extractMetaObject()
             ?: error("Response did not contain a valid meta object")
         val links = meta.links()
+        val videos = meta.videos()
 
         return MetaDetails(
             id = meta.requiredString("id"),
@@ -54,8 +56,8 @@ internal object MetaDetailsParser {
             defaultVideoId = meta.behaviorHints().string("defaultVideoId"),
             trailers = meta.trailers(),
             links = links,
-            seasonPosters = meta.seasonPosters(),
-            videos = meta.videos(),
+            seasonPosters = meta.seasonPosters(videos),
+            videos = videos,
         )
     }
 
@@ -252,14 +254,28 @@ internal object MetaDetailsParser {
             )
         }
 
-    private fun JsonObject.seasonPosters(): Map<Int, String> {
+    private fun JsonObject.seasonPosters(videos: List<MetaVideo>): Map<Int, String> {
         val appExtras = this["app_extras"] as? JsonObject ?: return emptyMap()
         val posters = appExtras["seasonPosters"] as? JsonArray ?: return emptyMap()
+        val seasons = videos
+            .mapNotNull(MetaVideo::season)
+            .filter { it >= SPECIALS_SEASON_NUMBER }
+            .distinct()
+            .sorted()
+        val positiveSeasons = seasons.filter { it > SPECIALS_SEASON_NUMBER }
+        val posterSeasons = when {
+            seasons.size == posters.size -> seasons
+            positiveSeasons.size == posters.size -> positiveSeasons
+            positiveSeasons.isNotEmpty() &&
+                posters.size == positiveSeasons.size + 1 &&
+                posters.firstOrNull() == JsonNull -> listOf(SPECIALS_SEASON_NUMBER) + positiveSeasons
+            else -> List(posters.size) { index -> index + 1 }
+        }
         return posters.mapIndexedNotNull { index, element ->
             (element as? JsonPrimitive)?.contentOrNull
                 ?.trim()
                 ?.takeIf(String::isNotBlank)
-                ?.let { index + 1 to it }
+                ?.let { posterSeasons[index] to it }
         }.toMap()
     }
 
