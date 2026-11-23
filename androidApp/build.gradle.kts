@@ -1,3 +1,4 @@
+import com.android.build.api.variant.FilterConfiguration
 import java.util.Properties
 
 fun readXcconfigValue(file: File, key: String): String? {
@@ -167,6 +168,14 @@ androidComponents {
         if (buildType.startsWith("nonMinified") || buildType.startsWith("benchmark") && buildType != "benchmark") {
             variant.applicationId.set("com.nuviodebug.com")
             variant.signingConfig.setConfig(android.signingConfigs.getByName("debug"))
+        }
+    }
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters
+                .firstOrNull { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier
+            output.outputFileName.set("Nuvio-$releaseAppVersionName-${abi ?: "universal"}.apk")
         }
     }
 }
