@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import com.nuvio.app.core.ui.NuvioBottomSheetDivider
 import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.nuvioSafeBottomPadding
@@ -38,6 +37,7 @@ import com.nuvio.app.features.player.LockPlayerToLandscape
 import com.nuvio.app.features.trailer.TrailerPlaybackState
 import com.nuvio.app.features.trailer.TrailerPlayer
 import com.nuvio.app.features.trailer.TrailerPlaybackSource
+import com.nuvio.app.isIos
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -76,9 +76,18 @@ fun TrailerPlayerPopup(
         fullscreen = !fullscreen
     }
 
-    if (fullscreen) {
+    val exitFullscreen = {
+        if (isIos) {
+            playbackState.controller?.pause()
+            onDismiss()
+        } else {
+            toggleFullscreen()
+        }
+    }
+
+    if (isIos || fullscreen) {
         LockPlayerToLandscape()
-        FullscreenPlayerDialog(onDismiss = toggleFullscreen) {
+        FullscreenPlayerDialog(onDismiss = exitFullscreen) {
             TrailerPlayer(
                 source = playbackSource,
                 state = playbackState,
@@ -87,7 +96,7 @@ fun TrailerPlayerPopup(
                 onRetry = onRetry,
                 modifier = Modifier.fillMaxSize(),
                 title = headerSubtitle.ifBlank { headerType },
-                onExitFullscreen = toggleFullscreen,
+                onExitFullscreen = exitFullscreen,
             )
         }
         return
@@ -152,8 +161,6 @@ fun TrailerPlayerPopup(
                     )
                 }
             }
-
-            NuvioBottomSheetDivider()
 
             TrailerPlayer(
                 source = playbackSource,
